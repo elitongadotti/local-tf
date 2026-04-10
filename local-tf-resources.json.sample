@@ -1,0 +1,6 @@
+{
+  "targets": [
+    "module.glue_job_1",
+    "module.glue_job_2"
+  ]
+}
