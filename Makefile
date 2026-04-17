@@ -1,6 +1,6 @@
 LOCAL_TF := bash $(dir $(abspath $(lastword $(MAKEFILE_LIST))))local-tf.sh
 
-.PHONY: help init plan apply destroy output
+.PHONY: help init plan apply destroy destroy-all output
 
 help:
 	@$(LOCAL_TF) help
@@ -16,6 +16,9 @@ apply:
 
 destroy:
 	@$(LOCAL_TF) destroy
+
+destroy-all:
+	@$(LOCAL_TF) destroy-all
 
 output:
 	@$(LOCAL_TF) output

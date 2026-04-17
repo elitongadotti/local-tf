@@ -1,6 +1,8 @@
 {
   "targets": [
     "module.glue_job_1",
-    "module.glue_job_2"
+    "module.glue_job_2",
+    "module.ses.*",
+    "aws_s3_bucket.bucket"
   ]
 }

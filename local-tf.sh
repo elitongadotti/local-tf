@@ -42,8 +42,43 @@ fi
 
 build_targets() {
   local targets=""
+  local has_wildcard=false
+  local state_list=""
+
   while IFS= read -r target; do
-    targets="$targets -target=$target"
+    if [[ "$target" == *'*'* || "$target" == *'?'* ]]; then
+      has_wildcard=true
+      break
+    fi
+  done < <(jq -r '.targets[]' "$RESOURCES_FILE")
+
+  if $has_wildcard && [[ -z "$state_list" ]]; then
+    echo "Expanding wildcard targets against terraform state..." >&2
+    state_list=$(terraform -chdir="$TF_ROOT" state list 2>/dev/null) || {
+      echo "Error: failed to list terraform state. Run 'local-tf init' first." >&2
+      exit 1
+    }
+  fi
+
+  while IFS= read -r target; do
+    if [[ "$target" == *'*'* || "$target" == *'?'* ]]; then
+      local matched=0
+      while IFS= read -r resource; do
+        [[ -z "$resource" ]] && continue
+        # shellcheck disable=SC2254
+        if [[ "$resource" == $target ]]; then
+          targets="$targets -target=$resource"
+          matched=$((matched + 1))
+        fi
+      done <<< "$state_list"
+      if [[ $matched -eq 0 ]]; then
+        echo "Warning: wildcard '$target' matched no resources in state." >&2
+      else
+        echo "Wildcard '$target' matched $matched resource(s)." >&2
+      fi
+    else
+      targets="$targets -target=$target"
+    fi
   done < <(jq -r '.targets[]' "$RESOURCES_FILE")
   echo "$targets"
 }
@@ -75,8 +110,19 @@ cmd_destroy() {
   local targets
   targets=$(build_targets)
   echo "TF root: $TF_ROOT"
-  echo "Targets to be destroyed!: $(jq -r '.targets | join(", ")' "$RESOURCES_FILE")"
+  echo "Targets to be destroyed: $(jq -r '.targets | join(", ")' "$RESOURCES_FILE")"
   terraform -chdir="$TF_ROOT" destroy -var-file="$TFVARS_FILE" $targets "$@"
+}
+
+cmd_destroy_all() {
+  echo "TF root: $TF_ROOT"
+  echo "WARNING: this will destroy EVERYTHING in the tfstate, not just the targets in $RESOURCES_FILE."
+  read -r -p "Are you sure? [y/N] " confirm
+  if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 1
+  fi
+  terraform -chdir="$TF_ROOT" destroy -var-file="$TFVARS_FILE" "$@"
 }
 
 cmd_output() {
@@ -92,7 +138,8 @@ usage() {
   echo "  init      Initialize terraform with local backend"
   echo "  plan      Plan targeted resources"
   echo "  apply     Apply targeted resources"
-  echo "  destroy   Destroy targeted resources"
+  echo "  destroy       Destroy targeted resources"
+  echo "  destroy-all   Destroy everything in the tfstate (with confirmation)"
   echo "  output    Show terraform outputs"
   echo ""
   echo "Expected files in the repo's terraform root:"
@@ -106,6 +153,7 @@ case "${1:-}" in
   plan)    shift; cmd_plan "$@" ;;
   apply)   shift; cmd_apply "$@" ;;
   destroy) shift; cmd_destroy "$@" ;;
+  destroy-all) shift; cmd_destroy_all "$@" ;;
   output)  shift; cmd_output "$@" ;;
   help)    usage ;;
   *)       usage ;;

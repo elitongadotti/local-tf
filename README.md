@@ -16,7 +16,7 @@ alias local-tf="make -f your-local-path/local-tf/Makefile"
 
 Now, for every `local-tf` command you run from a repository, will use this sh.
 
-The target terraform resources applied will be the ones listed in the `local-tf-resources.json` file. See the `local-tf-resources.json.sample` file.
+The target terraform resources applied against will be the ones listed in the `local-tf-resources.json` file. You can also use a wildcard -- See the `local-tf-resources.json.sample` file.
 
 For example, running:
 
