@@ -1,32 +1,31 @@
 The problem:
-You are running stuff (terraform resources) in a cloud environment backed by a terraform state. Other people in your team are sharing the same resources, a.k.a.: Same `state` file. If you need to change some stuff, other developers won't like it (no pun intended).
+You are running stuff (terraform resources) in a cloud environment backed by a terraform state. Other people in your team are sharing the same resources, a.k.a.: Same `state` file. If you need to change some stuff, other developers won't like it.
 
 The solution:
 The idea behind it is to abstract away a set of Terraform resources so while testing stuff locally (during development) we don't mess up the infra that is already being used by someone else. 
-This helper will create a `local.backend` file pointing to a **hardcoded bucket** existing in your Cloud (S3). Create it beforehand or run `local-tf help` to see what's needed. 
+This helper will create a `local.backend` file pointing to a **configurable bucket** existing in your Cloud (S3). Create the bucket beforehand. 
 
 
 How to:
 
-Tip: Create an alias in your `~/.zshrc` to make your life easier, like such:
+Create an alias in your `~/.zshrc` to make your life easier, like such:
 
 ```
 alias local-tf="make -f your-local-path/local-tf/Makefile"
 ```
 
-Now, for every `local-tf` command you run from a repository, will use this sh.
-
-The target terraform resources applied against will be the ones listed in the `local-tf-resources.json` file. You can also use a wildcard -- See the `local-tf-resources.json.sample` file.
-
-For example, running:
-
+Add the 2 following ENV variables to your `~/.zshrc`. Replace its value to fit your own setup .They will be referenced by your `local-tf` commands.
 ```
-local-tf init
+export PERSONAL_TF_WORKSPACE_BUCKET="someone-workspace"
+export WORKSPACE_TFVARS_FILE="staging.tfvars"
 ```
 
-from /user/abc/repo-X/
+Now, you are able to run a `local-tf` command from a repository. Run `local-tf help` to get started.
 
-will effectively run:
+Before running any command, create a `local-tf-resources.json` file at the root of your target repository. The target terraform resources applied against will be the ones listed in that file.   
+You can also use a wildcard to reference a whole module -- See the `local-tf-resources.json.sample` file.
+
+For example, running `local-tf init` from `/user/abc/my-special-repo/` will effectively run the following command — backed by **your own tfstate file** in the bucket you configured:
 
 ```
 terraform init -backend-config=environments/staging.tfvars

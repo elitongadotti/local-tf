@@ -17,14 +17,12 @@ find_tf_root() {
 
 read -r TF_ROOT ENV_DIR < <(find_tf_root)
 
-# To be configured by the developer. See README for details.
-PERSONAL_TF_WORKSPACE="someone-workspace-staging"
+# Expected files, to be configured by the developer. See README for details.
 RESOURCES_FILE="$TF_ROOT/local-tf-resources.json"
-
-# Expected files. See README for details:
 BACKEND_CONFIG="$TF_ROOT/$ENV_DIR/local.backend"
-TFVARS_FILE="$TF_ROOT/$ENV_DIR/staging.tfvars"
-
+# I configure them in .zshrc so that they are automatically set when I switch AWS profiles
+TFVARS_FILE="$TF_ROOT/$ENV_DIR/$WORKSPACE_TFVARS_FILE"
+PERSONAL_TF_WORKSPACE=$PERSONAL_TF_WORKSPACE_BUCKET
 
 if [[ ! -f "$BACKEND_CONFIG" ]]; then
   echo "Creating $BACKEND_CONFIG..."
@@ -42,17 +40,27 @@ fi
 
 build_targets() {
   local targets=""
-  local has_wildcard=false
   local state_list=""
+  local need_state=false
 
+  # Decide if we really need to list state. A "whole-prefix" wildcard like
+  # `module.foo.*` can be rewritten to `module.foo` — terraform treats that as
+  # "whole module, present and future", so it works on a fresh env with empty
+  # state. We only need state for finer-grained wildcards like `module.foo.aws_iam_*`.
   while IFS= read -r target; do
     if [[ "$target" == *'*'* || "$target" == *'?'* ]]; then
-      has_wildcard=true
+      if [[ "$target" == *.\* ]]; then
+        local prefix="${target%.\*}"
+        if [[ "$prefix" != *'*'* && "$prefix" != *'?'* ]]; then
+          continue
+        fi
+      fi
+      need_state=true
       break
     fi
   done < <(jq -r '.targets[]' "$RESOURCES_FILE")
 
-  if $has_wildcard && [[ -z "$state_list" ]]; then
+  if $need_state; then
     echo "Expanding wildcard targets against terraform state..." >&2
     state_list=$(terraform -chdir="$TF_ROOT" state list 2>/dev/null) || {
       echo "Error: failed to list terraform state. Run 'local-tf init' first." >&2
@@ -61,6 +69,16 @@ build_targets() {
   fi
 
   while IFS= read -r target; do
+    # Whole-prefix wildcards: rewrite `module.X.*` to `module.X`.
+    if [[ "$target" == *.\* ]]; then
+      local prefix="${target%.\*}"
+      if [[ "$prefix" != *'*'* && "$prefix" != *'?'* ]]; then
+        targets="$targets -target=$prefix"
+        echo "Target '$target' -> '$prefix' (whole-prefix expansion, no state needed)." >&2
+        continue
+      fi
+    fi
+
     if [[ "$target" == *'*'* || "$target" == *'?'* ]]; then
       local matched=0
       while IFS= read -r resource; do
@@ -72,7 +90,7 @@ build_targets() {
         fi
       done <<< "$state_list"
       if [[ $matched -eq 0 ]]; then
-        echo "Warning: wildcard '$target' matched no resources in state." >&2
+        echo "Warning: wildcard '$target' matched no resources in state (state may be empty on first apply)." >&2
       else
         echo "Wildcard '$target' matched $matched resource(s)." >&2
       fi
