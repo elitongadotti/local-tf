@@ -3,7 +3,7 @@ You are running stuff (terraform resources) in a cloud environment backed by a t
 
 The solution:
 The idea behind it is to abstract away a set of Terraform resources so while testing stuff locally (during development) we don't mess up the infra that is already being used by someone else. 
-This helper will create a `local.backend` file pointing to a **configurable bucket** existing in your Cloud (S3). Create the bucket beforehand. 
+This helper will create a `local.backend` file pointing to a **configurable bucket** existing in your Cloud (S3). You must create the bucket beforehand. 
 
 
 How to:
@@ -20,10 +20,12 @@ export PERSONAL_TF_WORKSPACE_BUCKET="someone-workspace"
 export WORKSPACE_TFVARS_FILE="staging.tfvars"
 ```
 
-Now, you are able to run a `local-tf` command from a repository. Run `local-tf help` to get started.
-
-Before running any command, create a `local-tf-resources.json` file at the root of your target repository. The target terraform resources applied against will be the ones listed in that file.   
+Now, you can run a `local-tf` command from a repository. You must declare the resources you want to point to in the `local-tf-resources.json` file at the root of your target repository. Then, the target Terraform resources applied against will be the ones listed there.   
 You can also use a wildcard to reference a whole module -- See the `local-tf-resources.json.sample` file.
+
+
+Run `local-tf help` to get started with it.
+
 
 For example, running `local-tf init` from `/user/abc/my-special-repo/` will effectively run the following command — backed by **your own tfstate file** in the bucket you configured:
 
