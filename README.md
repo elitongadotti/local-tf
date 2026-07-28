@@ -1,5 +1,8 @@
 
-Terraform [workspaces](https://developer.hashicorp.com/terraform/cloud-docs/workspaces) already solve this very same problem. Therefore, this repo has been archived.
+## Terraform [workspaces](https://developer.hashicorp.com/terraform/cloud-docs/workspaces) already solve this very same problem.   
+## Therefore, this repo has been archived!
+
+-------- 
 
 The problem:
 You are running stuff (terraform resources) in a cloud environment backed by a terraform state. Other people in your team are sharing the same resources, a.k.a.: Same `state` file. If you need to change some stuff, other developers won't like it.
